@@ -80,10 +80,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		DDC6F25A13D4AA7E00BAEC23 /* ofSerialEven.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = ofSerialEven.cpp; path = Udvikling/of_preRelease_v0062_osxSL_FAT/apps/illutron/ABBRobot/src/ofSerialEven.cpp; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		DDC6F25B13D4AA7E00BAEC23 /* ofSerialEven.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ofSerialEven.h; path = Udvikling/of_preRelease_v0062_osxSL_FAT/apps/illutron/ABBRobot/src/ofSerialEven.h; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		DDC6F2C813D4B60700BAEC23 /* adlpCom.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = adlpCom.h; path = Udvikling/of_preRelease_v0062_osxSL_FAT/apps/illutron/ABBRobot/src/adlpCom.h; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		DDC6F2C913D4B60700BAEC23 /* adlpCom.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = adlpCom.cpp; path = Udvikling/of_preRelease_v0062_osxSL_FAT/apps/illutron/ABBRobot/src/adlpCom.cpp; sourceTree = SYSTEM_DEVELOPER_DIR; };
+		DDC6F25A13D4AA7E00BAEC23 /* ofSerialEven.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ofSerialEven.cpp; sourceTree = "<group>"; };
+		DDC6F25B13D4AA7E00BAEC23 /* ofSerialEven.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ofSerialEven.h; sourceTree = "<group>"; };
+		DDC6F2C813D4B60700BAEC23 /* adlpCom.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = adlpCom.h; sourceTree = "<group>"; };
+		DDC6F2C913D4B60700BAEC23 /* adlpCom.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = adlpCom.cpp; sourceTree = "<group>"; };
 		E45BE0390E8CC647009D7055 /* FreeImage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = FreeImage.h; path = ../../../libs/freeimage/include/FreeImage.h; sourceTree = SOURCE_ROOT; };
 		E45BE03F0E8CC650009D7055 /* fmod.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = fmod.h; path = ../../../libs/fmodex/include/fmod.h; sourceTree = SOURCE_ROOT; };
 		E45BE0400E8CC650009D7055 /* fmod.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = fmod.hpp; path = ../../../libs/fmodex/include/fmod.hpp; sourceTree = SOURCE_ROOT; };
