@@ -29,7 +29,7 @@ class testApp : public ofBaseApp{
 		int			nBytesRead;					// how much did we read?
 		int			nTimesRead;					// how many times did we read?
 		float		readTime;					// when did we last read?				
-		
+    int n;
 		ofSerial	serial;
 };
 

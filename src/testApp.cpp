@@ -47,6 +47,9 @@ void testApp::setup(){
 //--------------------------------------------------------------
 void testApp::update(){
 	
+    serial.writeByte(n++);
+    ofSleepMillis(100);
+/*
 	if (bSendSerialMessage){
 		
 		// (1) write the letter "a" to serial:
@@ -79,7 +82,7 @@ void testApp::update(){
 		
 		bSendSerialMessage = false;
 		readTime = ofGetElapsedTimef();
-	}
+	}*/
 }
 
 //--------------------------------------------------------------
