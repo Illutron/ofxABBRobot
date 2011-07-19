@@ -31,8 +31,9 @@ public:
 	void update();
 
 	void queueMessage(ARAPMessage message);
-    bool available();
-    ARAPMessage readMessage(); //Check if available()! 
+    bool available(); //if there is a readMessage
+    ARAPMessage readMessage(); 
+    void markRead(); //Mark the incomming message as read (so nobody else reads it)
     
 	bool connected;
 	bool receivingMessage;
@@ -44,11 +45,13 @@ private:
     int incommingMessageIndex;
     ARAPMessage incommingMessageTemp;    
     bool incommingFormalities[5];
+    bool waitingForResponse;
     
     void parseIncommingByte(unsigned char bytesReturned);
     
     vector<ARAPMessage> messageQueue;
-    vector<ARAPMessage> incommingMessages;
+    ARAPMessage incommingMessage;
+    bool messageRead;
     
     bool outgoingFormalities[2];
     

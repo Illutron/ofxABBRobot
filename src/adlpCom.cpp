@@ -19,6 +19,8 @@ ADLPCom::ADLPCom(){
     incommingMessageIndex = -1;
     receivingMessage = false;
     sendingMessage = false;
+    waitingForResponse = false;
+    messageRead = false;
     memset(outgoingFormalities, false, 2);
     
     startThread(true, false);
@@ -38,22 +40,20 @@ void ADLPCom::queueMessage(ARAPMessage msg){
 }
 
 bool ADLPCom::available(){
-    bool ret = false;
-    if(lock()){
-        ret = (incommingMessages.size() > 0);
-        unlock();
-    }
-    return ret; 
+    return !messageRead; 
 }
 
 ARAPMessage ADLPCom::readMessage(){
     ARAPMessage ret;
     if(lock()){
-        ret = incommingMessages[0];
-        incommingMessages.erase(incommingMessages.begin());
+        ret = incommingMessage;
         unlock();
     }
     return ret;
+}
+
+void ADLPCom::markRead(){
+    messageRead = true;
 }
 
 void ADLPCom::threadedFunction(){
@@ -63,7 +63,7 @@ void ADLPCom::threadedFunction(){
             while(serial.available()  > 0){
                 bytesReturned = serial.readByte();
                 
-                printf("%i: ",incommingMessageIndex);
+                printf("%i/%i: ",incommingMessageIndex, incommingMessageTemp.size);
                 switch (bytesReturned) {
                     case ACK:
                         printf("Recv: %x (ACK)\n",bytesReturned);
@@ -93,7 +93,7 @@ void ADLPCom::threadedFunction(){
                 
             }
             
-            if(messageQueue.size() > 0 && !receivingMessage){
+            if(messageQueue.size() > 0 && !receivingMessage && !waitingForResponse){
                 //There are messages to be send
                 if(!sendingMessage){
                     //ENQ not send yet, lets send it
@@ -114,10 +114,11 @@ void ADLPCom::threadedFunction(){
                     message[3] = 0; //Mesesage from PC to controller
                     message[4] = msg.instruction; // Instruction
                     message[5] = msg.messageType;
-                    message[6] = 0; //function suffix
+                    message[6] = 0; //function suffix << 8 TODO
                     message[7] = msg.functionSuffix; //function suffix
                     for(int i=0;i<msg.size-8;i++){
                         message[8+i] = msg.data[i];
+                        cout<<"Add data: "<<8+i<<"  "<<(int)msg.data[i]<<endl;
                     }
                     
                     unsigned char checksum = message[0];
@@ -133,6 +134,9 @@ void ADLPCom::threadedFunction(){
                     serial.writeByte(DLE);
                     serial.writeByte(ETX);
                     serial.writeByte(checksum ^ ETX);
+                    if(msg.messageType == query){
+                        waitingForResponse = true;
+                    }
                 }
             }
             unlock();
@@ -154,16 +158,7 @@ void ADLPCom::parseIncommingByte(unsigned char bytesReturned){
             outgoingFormalities[1] = true;
         }
     }
-    if(bytesReturned == ENQ){
-        //New message is incomming
-        //Return with an acknowledge 
-        serial.writeByte(ACK);
-        receivingMessage = true;
-        incommingMessageIndex = 0; //Reset the index counter
-        memset(incommingFormalities,false,5); //reset the formalities handler
-        incommingFormalities[0] = true; //Tell that the first formality is met
-        
-    } else if(incommingMessageIndex >= 0 && incommingFormalities[0] && incommingFormalities[1] && incommingFormalities[2] && !incommingFormalities[3] && !incommingFormalities[4] && (incommingMessageIndex <= 1 || incommingMessageIndex < incommingMessageTemp.size) ){
+    if(incommingMessageIndex >= 0 && incommingFormalities[0] && incommingFormalities[1] && incommingFormalities[2] && !incommingFormalities[3] && !incommingFormalities[4] && (incommingMessageIndex <= 1 || incommingMessageIndex < incommingMessageTemp.size) ){
         //We are processing a message content that is incomming
         switch (incommingMessageIndex) {
             case 0:
@@ -193,10 +188,10 @@ void ADLPCom::parseIncommingByte(unsigned char bytesReturned){
                 }
                 break;
             case 6:
-                //function
+                incommingMessageTemp.functionSuffix = bytesReturned<<8;
                 break;
             case 7:
-                //function
+                incommingMessageTemp.functionSuffix += bytesReturned;
                 break;
                 
             default:
@@ -209,13 +204,30 @@ void ADLPCom::parseIncommingByte(unsigned char bytesReturned){
         }
         
         incommingMessageIndex++;
-    } else if(bytesReturned == DLE){
+    }  else  if(bytesReturned == ENQ){
+        //New message is incomming
+        //Return with an acknowledge 
+        serial.writeByte(ACK);
+        receivingMessage = true;
+        incommingMessageIndex = 0; //Reset the index counter
+        memset(incommingFormalities,false,5); //reset the formalities handler
+        incommingFormalities[0] = true; //Tell that the first formality is met
+        
+    }  else if(bytesReturned == DLE){
         if(!incommingFormalities[1]){
             incommingFormalities[1] = true;            
             cout<<"First DLE"<<endl;
-        }else {
+        }else if(!incommingFormalities[3]) {
             incommingFormalities[3] = true; //Second time DLE is received after message         
             cout<<"Second DLE"<<endl;
+        } else {
+            //New message
+            cout<<"----------"<<endl<<"Next message"<<endl;
+            incommingMessageIndex = 0; //Reset the index counter
+            memset(incommingFormalities,false,5); //reset the formalities handler
+            incommingFormalities[0] = true;
+            incommingFormalities[1] = true; 
+            receivingMessage = true;
         }
     } else if(bytesReturned == STXodd || bytesReturned == STXeven){
         incommingFormalities[2] = true;       
@@ -227,15 +239,15 @@ void ADLPCom::parseIncommingByte(unsigned char bytesReturned){
     } else if(bytesReturned == EOT){
         //End of transmission
         cout<<"got EOT"<<endl;
-        printf("Done receiving at msg %i\n",incommingMessageIndex);
-        printf("Received instruction: %i",incommingMessageTemp.instruction );
-        if(incommingMessageTemp.messageType == warning){
-            cout<<"WARNING"<<endl;
-        }
-        cout<<incommingMessageTemp.data<<endl;
-        incommingMessageIndex = -1;
-        incommingMessages.push_back(incommingMessageTemp);
-        incommingMessageTemp = ARAPMessage();
+        //if(incommingMessageTemp.instruction != 0x7F){
+            waitingForResponse = false;
+            printf("Done receiving at msg %i\n",incommingMessageIndex);
+            printf("Received instruction: %i",incommingMessageTemp.instruction );
+            incommingMessageIndex = -1;
+            incommingMessage = incommingMessageTemp;
+            messageRead = false;
+            incommingMessageTemp = ARAPMessage();
+      //  }
     } 
     else if(incommingMessageIndex >= 0 && incommingFormalities[0] && incommingFormalities[1] && incommingFormalities[2] && incommingFormalities[3] && incommingFormalities[4]){
         printf("Recevied checksum %x\n",bytesReturned);
@@ -243,5 +255,15 @@ void ADLPCom::parseIncommingByte(unsigned char bytesReturned){
         serial.writeByte(ACK); 
         receivingMessage = false;
         
+       /* if(incommingMessageTemp.instruction == 0x7F){
+            //HACK: When we receive automatic status updates, we don't always get a EOT, so we cheat here. I don't know why
+            waitingForResponse = false;
+            printf("Received instruction: %i",incommingMessageTemp.instruction );
+            incommingMessageIndex = -1;
+            incommingMessage = incommingMessageTemp;
+            messageRead = false;
+            incommingMessageTemp = ARAPMessage();
+            
+        }*/
     }        
 }

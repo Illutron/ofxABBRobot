@@ -51,5 +51,5 @@ struct ARAPMessage {
 
 class ARAPParser {
 public:
-    ARAPMessage constructMessage(ARAPInstruction instruction, unsigned char * data, int datasize);
+    ARAPMessage constructMessage(ARAPInstruction instruction, int functionSuffix = 0, unsigned char * data = nil, int datasize = 0);
 };

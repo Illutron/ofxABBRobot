@@ -3,9 +3,13 @@
 enum ARAP_MODE {
     STANDBY = 0,
     OPERATION = 1,
-    EXECUTION = 2,
-    EMERGENCYSTOP = 3
+    SYNCHRONIZATION = 2,
+    OPERATIONANDSYNCHRONIZATION = 3,
+    EXECUTION = 20,
+    EMERGENCYSTOP = 30
 };
+
+
 
 struct ARAP_STATUS {
     int program_number;
