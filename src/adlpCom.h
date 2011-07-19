@@ -31,7 +31,24 @@ enum ADLPMessageType {
 };
 
 enum ADLPInstruction {
-	ARAPVersion = 0x2D
+    uploadProgram = 0x01,
+    startProgram = 0x02,
+    stopProgram = 0x03, //confirmed
+    TCPvalue = 0x04,
+    locationValue = 0x05,
+    registerValue = 0x06,
+    sensorValue = 0x07,
+    configurationValue = 0x0A,
+    frameValue = 0x0B,
+    statusList = 0x13,
+    operationMode = 0x14,
+    programList = 0x15,
+    eraseProgram = 0x16,
+    arcWeldValue = 0x19,
+    downloadProgram = 0x1D,
+	ARAPVersion = 0x2D,
+    resolverValue = 0x2E,
+    automaticStatusUpdate = 0x7F //return from robot at emergency break
 };
 
 struct ADLPMessage {
@@ -49,10 +66,22 @@ public:
 	
 	void update();
 	void sendMessage();
-	
+    void sendMessage(ADLPInstruction instruction, unsigned char * data, int datasize);
+	void sendMessage(ADLPMessage message);
+    
 	bool connected;
-	
+	bool receivingMessage;
+    bool sendingMessage;
 	
 private:
 	ofSerialEven serial;
+    
+    int incommingMessageIndex;
+    ADLPMessage incommingMessageTemp;    
+    bool incommingFormalities[5];
+    
+    void parseIncommingByte(unsigned char bytesReturned);
+    
+    vector<ADLPMessage> messageQueue;
+    bool outgoingFormalities[2];
 };

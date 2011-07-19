@@ -27,8 +27,28 @@ void testApp::draw(){
 //--------------------------------------------------------------
 void testApp::keyPressed  (int key){ 
 	if(key == 'v'){
-		adlp.sendMessage();
+        unsigned char data[4];
+        data[0] = 0;
+        data[1] = 1;
+        data[2] = 0;
+        data[3] = 2;
+		adlp.sendMessage((ADLPInstruction)0x02, data, 4);
+    
+    } if(key == 's'){
+        adlp.sendMessage((ADLPInstruction)stopProgram, nil, 0);
     }
+    if(key == 'i'){
+        adlp.sendMessage((ADLPInstruction)0x15, nil, 0);
+    }
+    if(key == 'd'){
+        unsigned char data[4];
+        data[0] = 0;
+        data[1] = 1;
+        data[3] = 0;
+        data[4] = 1;
+        adlp.sendMessage((ADLPInstruction)0x1D, data, 4);
+    }
+    
 }
 
 //--------------------------------------------------------------
