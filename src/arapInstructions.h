@@ -1,5 +1,7 @@
 #pragma once
 
+
+
 enum ARAP_MODE {
     STANDBY = 0,
     OPERATION = 1,
@@ -7,6 +9,16 @@ enum ARAP_MODE {
     OPERATIONANDSYNCHRONIZATION = 3,
     EXECUTION = 20,
     EMERGENCYSTOP = 30
+};
+
+struct ARAP_COORDINATE {
+    int x;
+    int y;
+    int z;
+    int q1;
+    int q2;
+    int q3;
+    int q4;
 };
 
 
@@ -21,4 +33,10 @@ struct ARAP_STATUS {
     bool programming_unit; //connected or not connected
     bool key; //false = auto | true = auto or test 100%
     ARAP_MODE mode;
+    ARAP_COORDINATE location;
 };
+
+struct ARAP_PROGRAM {
+    unsigned char * data;
+};
+

@@ -22,6 +22,7 @@
 #define ETX 0x03
 #define EOT 0x04
 
+#define incommingBufferSize 100
 
 
 class ADLPCom : public ofxThread{
@@ -31,9 +32,10 @@ public:
 	void update();
 
 	void queueMessage(ARAPMessage message);
-    bool available(); //if there is a readMessage
-    ARAPMessage readMessage(); 
-    void markRead(); //Mark the incomming message as read (so nobody else reads it)
+    vector<ARAPMessage> readMessages(); 
+    vector<ARAPMessage> readMessagesAfterCount(long count);
+
+    long readMessageCounter; //For each new message that is received this is ++
     
 	bool connected;
 	bool receivingMessage;
@@ -50,11 +52,12 @@ private:
     void parseIncommingByte(unsigned char bytesReturned);
     
     vector<ARAPMessage> messageQueue;
-    ARAPMessage incommingMessage;
-    bool messageRead;
+    vector<ARAPMessage> incommingMessages;
     
     bool outgoingFormalities[2];
     
     void threadedFunction();
+    
+    int multimessageDataIndex;
     
 };

@@ -2,7 +2,7 @@
 
 ARAPMessage ARAPParser::constructMessage(ARAPInstruction instruction, int functionSuffix, unsigned char * data, int datasize){
     ARAPMessage msg;
-    msg.size = datasize + 8;
+    msg.size = datasize;
     msg.fromComputer = true;
     msg.instruction = instruction;
     msg.messageType = query;

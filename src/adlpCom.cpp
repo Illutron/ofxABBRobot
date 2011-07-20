@@ -20,8 +20,8 @@ ADLPCom::ADLPCom(){
     receivingMessage = false;
     sendingMessage = false;
     waitingForResponse = false;
-    messageRead = false;
     memset(outgoingFormalities, false, 2);
+    readMessageCounter = 0;
     
     startThread(true, false);
 	
@@ -39,21 +39,28 @@ void ADLPCom::queueMessage(ARAPMessage msg){
     } 
 }
 
-bool ADLPCom::available(){
-    return !messageRead; 
-}
 
-ARAPMessage ADLPCom::readMessage(){
-    ARAPMessage ret;
+vector<ARAPMessage> ADLPCom::readMessages(){
+    vector<ARAPMessage> ret;
     if(lock()){
-        ret = incommingMessage;
+        ret = incommingMessages;
         unlock();
     }
     return ret;
 }
 
-void ADLPCom::markRead(){
-    messageRead = true;
+vector<ARAPMessage> ADLPCom::readMessagesAfterCount(long count){
+    vector<ARAPMessage> ret ;   
+    long diff = readMessageCounter - count;
+    if(diff <= 0){
+        return ret;
+    } else {
+        vector<ARAPMessage> v = readMessages();
+        for(int i=0;i<diff;i++){
+            ret.push_back(v[v.size()-1-i]);
+        }        
+        return ret;        
+    }
 }
 
 void ADLPCom::threadedFunction(){
@@ -116,13 +123,13 @@ void ADLPCom::threadedFunction(){
                     message[5] = msg.messageType;
                     message[6] = 0; //function suffix << 8 TODO
                     message[7] = msg.functionSuffix; //function suffix
-                    for(int i=0;i<msg.size-8;i++){
+                    for(int i=0;i<msg.size;i++){
                         message[8+i] = msg.data[i];
                         cout<<"Add data: "<<8+i<<"  "<<(int)msg.data[i]<<endl;
                     }
                     
                     unsigned char checksum = message[0];
-                    for(int i=1;i<msg.size;i++){
+                    for(int i=1;i<msg.size+8;i++){
                         checksum = checksum ^ message[i];
                     }
                     //		message[7] = 1;
@@ -130,7 +137,7 @@ void ADLPCom::threadedFunction(){
                     
                     serial.writeByte(DLE);
                     serial.writeByte((msg.size % 2)? STXodd : STXeven);
-                    serial.writeBytes(message, msg.size);
+                    serial.writeBytes(message, msg.size+8);
                     serial.writeByte(DLE);
                     serial.writeByte(ETX);
                     serial.writeByte(checksum ^ ETX);
@@ -153,21 +160,45 @@ void ADLPCom::parseIncommingByte(unsigned char bytesReturned){
             outgoingFormalities[0] = false;
             outgoingFormalities[1] = false;
             sendingMessage = false;
+            serial.writeByte(EOT);
         } else if(outgoingFormalities[0] && !outgoingFormalities[1])  {
             //Start sending message
             outgoingFormalities[1] = true;
         }
     }
-    if(incommingMessageIndex >= 0 && incommingFormalities[0] && incommingFormalities[1] && incommingFormalities[2] && !incommingFormalities[3] && !incommingFormalities[4] && (incommingMessageIndex <= 1 || incommingMessageIndex < incommingMessageTemp.size) ){
+    if(incommingMessageIndex >= 0 && incommingFormalities[0] && incommingFormalities[1] && incommingFormalities[2] && !incommingFormalities[3] && !incommingFormalities[4] && (incommingMessageIndex <= 1 || incommingMessageIndex + multimessageDataIndex < incommingMessageTemp.size+8) ){
         //We are processing a message content that is incomming
         switch (incommingMessageIndex) {
             case 0:
                 //Not used
                 break;
             case 1:
+            {
                 cout<<"Start new message with size "<<(int)bytesReturned<<endl;
-                incommingMessageTemp.size = bytesReturned;
-                incommingMessageTemp.data = (unsigned char*) malloc(incommingMessageTemp.size*sizeof(unsigned char));
+                int oldSize = incommingMessageTemp.size;
+                unsigned char  temp[oldSize];
+                if(oldSize > 0){
+                    cout<<"Already "<<(int)oldSize<<" bytes in the message to add to"<<endl;                    
+                    for(int i=0;i<oldSize;i++){
+                        temp[i] = incommingMessageTemp.data[i];
+                    }
+//                    memcpy(temp , incommingMessageTemp.data, oldSize*sizeof(unsigned char));                    
+                    //Now we got a copy of the old data, so we can allocate a bigger one
+                    free(incommingMessageTemp.data);
+                }
+                incommingMessageTemp.size += bytesReturned-8;
+                incommingMessageTemp.data = (unsigned char*) malloc((incommingMessageTemp.size+100)*sizeof(unsigned char));
+                
+                if(oldSize > 0){
+                    //If we had some old data, lets copy it back
+                    for(int i=0;i<oldSize;i++){
+                        incommingMessageTemp.data[i] = temp[i];
+                    }
+//                    memcpy(incommingMessageTemp.data, temp, oldSize*sizeof(unsigned char));
+                    multimessageDataIndex = oldSize;
+                  //  free(temp);
+                }
+            }
                 break;
             case 2:
                 if(bytesReturned == 1){
@@ -183,9 +214,6 @@ void ADLPCom::parseIncommingByte(unsigned char bytesReturned){
                 break;
             case 5:
                 incommingMessageTemp.messageType = (ARAPMessageType)bytesReturned;
-                if(incommingMessageTemp.messageType  == warning){
-                    cout<<"WARNING"<<endl;
-                }
                 break;
             case 6:
                 incommingMessageTemp.functionSuffix = bytesReturned<<8;
@@ -196,10 +224,10 @@ void ADLPCom::parseIncommingByte(unsigned char bytesReturned){
                 
             default:
                 //Everything else is data
-                printf("\t\t\t\tData: %x %i\n",bytesReturned,bytesReturned);
+                printf("\t\t\t\tData %i: %x %i\n",multimessageDataIndex+incommingMessageIndex-8, bytesReturned,bytesReturned);
                 if(bytesReturned > 31 && bytesReturned < 127)
                     printf("%c",bytesReturned);
-                incommingMessageTemp.data[incommingMessageIndex-8] = bytesReturned;
+                incommingMessageTemp.data[multimessageDataIndex+incommingMessageIndex-8] = bytesReturned;
                 break;
         }
         
@@ -212,6 +240,8 @@ void ADLPCom::parseIncommingByte(unsigned char bytesReturned){
         incommingMessageIndex = 0; //Reset the index counter
         memset(incommingFormalities,false,5); //reset the formalities handler
         incommingFormalities[0] = true; //Tell that the first formality is met
+        multimessageDataIndex = 0;
+        incommingMessageTemp.size = 0;
         
     }  else if(bytesReturned == DLE){
         if(!incommingFormalities[1]){
@@ -240,14 +270,17 @@ void ADLPCom::parseIncommingByte(unsigned char bytesReturned){
         //End of transmission
         cout<<"got EOT"<<endl;
         //if(incommingMessageTemp.instruction != 0x7F){
-            waitingForResponse = false;
-            printf("Done receiving at msg %i\n",incommingMessageIndex);
-            printf("Received instruction: %i",incommingMessageTemp.instruction );
-            incommingMessageIndex = -1;
-            incommingMessage = incommingMessageTemp;
-            messageRead = false;
-            incommingMessageTemp = ARAPMessage();
-      //  }
+        waitingForResponse = false;
+        printf("Done receiving at msg %i\n",incommingMessageIndex);
+        printf("Received instruction: %i",incommingMessageTemp.instruction );
+        incommingMessageIndex = -1;
+        incommingMessages.push_back(incommingMessageTemp);
+        readMessageCounter ++;
+        while (incommingMessages.size() > incommingBufferSize){
+            incommingMessages.erase(incommingMessages.begin());
+        }
+        incommingMessageTemp = ARAPMessage();
+        //  }
     } 
     else if(incommingMessageIndex >= 0 && incommingFormalities[0] && incommingFormalities[1] && incommingFormalities[2] && incommingFormalities[3] && incommingFormalities[4]){
         printf("Recevied checksum %x\n",bytesReturned);
@@ -255,15 +288,15 @@ void ADLPCom::parseIncommingByte(unsigned char bytesReturned){
         serial.writeByte(ACK); 
         receivingMessage = false;
         
-       /* if(incommingMessageTemp.instruction == 0x7F){
-            //HACK: When we receive automatic status updates, we don't always get a EOT, so we cheat here. I don't know why
-            waitingForResponse = false;
-            printf("Received instruction: %i",incommingMessageTemp.instruction );
-            incommingMessageIndex = -1;
-            incommingMessage = incommingMessageTemp;
-            messageRead = false;
-            incommingMessageTemp = ARAPMessage();
-            
-        }*/
+        /* if(incommingMessageTemp.instruction == 0x7F){
+         //HACK: When we receive automatic status updates, we don't always get a EOT, so we cheat here. I don't know why
+         waitingForResponse = false;
+         printf("Received instruction: %i",incommingMessageTemp.instruction );
+         incommingMessageIndex = -1;
+         incommingMessage = incommingMessageTemp;
+         messageRead = false;
+         incommingMessageTemp = ARAPMessage();
+         
+         }*/
     }        
 }
