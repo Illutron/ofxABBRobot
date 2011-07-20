@@ -266,12 +266,14 @@ ARAP_PROGRAM ofxABBRobot::receiveProgram(int program){
     return ret;
 }
 
-
-void ofxABBRobot::move(ARAP_COORDINATE coord, int velocity, int runSpeed, bool absolute){
+void ofxABBRobot::sendMoveMessage(ARAP_COORDINATE coord, int velocity, int runSpeed, int functionSuffix, unsigned moveData, bool last){
     unsigned char data[52];
     memset(data, 0, 52);
     
-    data[13-8] = 0; //Move data
+    data[11] = 0;
+
+    data[12-8] = 0; //Handpos?
+    data[13-8] = moveData;
     
     data[14-8] = velocity >> 8;
     data[15-8] = velocity & 255;
@@ -302,11 +304,44 @@ void ofxABBRobot::move(ARAP_COORDINATE coord, int velocity, int runSpeed, bool a
     
     data[32-8] = 255;
     data[33-8] = 255;
-    data[34-8] = 255;
-    data[35-8] = 114;
-    //    ARAPMessage msg = parser->constructMessage(MOVE, absolute?1:0, data, 52);
-    ARAPMessage msg = parser->constructMessage(MOVE, 0, data, 52);
+    data[34-8] = 250;
+    data[35-8] = 220;
+    
+    ARAPMessage msg = parser->constructMessage(MOVE, functionSuffix, data, 52);
+    if(!last){
+        msg.messageType = multifrompc;
+    }
     commandQuery(msg);
+}
+
+void ofxABBRobot::move(ARAP_COORDINATE coord, int velocity, int runSpeed, bool absolute, bool robotCoordinates){
+    
+    unsigned char robotBit = 0;
+    if(robotCoordinates){
+        robotBit = 4;
+    }
+    
+    //Set startpunkt
+    sendMoveMessage(coord, velocity, runSpeed, 2,2+robotBit, true); //Startpunkt, Rechtwinkelige Koordinaten
+    
+    //Set motion 1
+    ARAP_COORDINATE motion1 = coord;
+    //    memset(&motion1,0,sizeof(ARAP_COORDINATE));
+    //motion1.y -= 1000;
+    sendMoveMessage(motion1, velocity, runSpeed, 0, 0+robotBit, true); //Relative Bewegung, Startpunkt
+
+    
+    //Set motion 2U
+ /*  ARAP_COORDINATE motion2 = coord;
+    //    memset(&motion2,0,sizeof(ARAP_COORDINATE));
+    motion2.y += 1000;
+    sendMoveMessage(motion2, velocity, runSpeed, 0, 0, false); //Relative Bewegung, Startpunkt
+    */
+    //Set stop
+    ARAP_COORDINATE endpoint = coord;
+    //endpoint.x -= 500;
+
+   sendMoveMessage(endpoint, velocity, runSpeed, 3, 2+robotBit/*+4*/, true); //Endpunkt, Startpunkt
     
     
 }

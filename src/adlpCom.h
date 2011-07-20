@@ -59,5 +59,7 @@ private:
     void threadedFunction();
     
     int multimessageDataIndex;
+    bool sendingMultimessage;
+    bool readyToSendNextMultiMessage;
     
 };

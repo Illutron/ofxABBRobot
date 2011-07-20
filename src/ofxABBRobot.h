@@ -17,7 +17,7 @@ public:
     void writeMode(ARAP_MODE mode);
     ARAP_STATUS readStatus(bool async=false);
     ARAP_PROGRAM receiveProgram(int program);
-    void move(ARAP_COORDINATE coord, int velocity, int runSpeed, bool absolute = true);
+    void move(ARAP_COORDINATE coord, int velocity, int runSpeed, bool absolute = true,  bool robotCoordinates=false);
 
     bool isErrorMessage(ARAPMessage msg);
     bool isWarningMessage(ARAPMessage msg);
@@ -30,5 +30,6 @@ private:
     ARAPMessage responseSyncQuery(ARAPMessage msg);
     void commandQuery(ARAPMessage msg);
 
+    void sendMoveMessage(ARAP_COORDINATE coord, int velocity, int runSpeed, int functionSuffix, unsigned moveData, bool last);
     long responseCounter;
 };

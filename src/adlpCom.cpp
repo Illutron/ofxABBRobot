@@ -22,7 +22,7 @@ ADLPCom::ADLPCom(){
     waitingForResponse = false;
     memset(outgoingFormalities, false, 2);
     readMessageCounter = 0;
-    
+    readyToSendNextMultiMessage = false;
     startThread(true, false);
 	
 }
@@ -107,7 +107,7 @@ void ADLPCom::threadedFunction(){
                     serial.writeByte(ENQ);
                     sendingMessage = true;
                     outgoingFormalities[0] = true;
-                } else if(outgoingFormalities[1]){
+                } else if(outgoingFormalities[1] || readyToSendNextMultiMessage){
                     ARAPMessage msg = messageQueue[0];
                     messageQueue.erase(messageQueue.begin());
                     
@@ -121,12 +121,22 @@ void ADLPCom::threadedFunction(){
                     message[3] = 0; //Mesesage from PC to controller
                     message[4] = msg.instruction; // Instruction
                     message[5] = msg.messageType;
+                    printf("Message type: %x\n",msg.messageType);
                     message[6] = 0; //function suffix << 8 TODO
                     message[7] = msg.functionSuffix; //function suffix
                     for(int i=0;i<msg.size;i++){
                         message[8+i] = msg.data[i];
                         cout<<"Add data: "<<8+i<<"  "<<(int)msg.data[i]<<endl;
                     }
+
+                    readyToSendNextMultiMessage = false;
+                    if(msg.messageType == multifrompc){
+                        sendingMultimessage = true;
+                    } else {
+                        sendingMultimessage = false;
+                    }
+                    
+                    
                     
                     unsigned char checksum = message[0];
                     for(int i=1;i<msg.size+8;i++){
@@ -134,7 +144,7 @@ void ADLPCom::threadedFunction(){
                     }
                     //		message[7] = 1;
                     
-                    
+                        
                     serial.writeByte(DLE);
                     serial.writeByte((msg.size % 2)? STXodd : STXeven);
                     serial.writeBytes(message, msg.size+8);
@@ -155,12 +165,21 @@ void ADLPCom::threadedFunction(){
 
 void ADLPCom::parseIncommingByte(unsigned char bytesReturned){
     if(bytesReturned == ACK && sendingMessage){
+        cout<<"Got ack, and is sending message "<<outgoingFormalities[0]<<"  "<< outgoingFormalities[1]<<endl;
         if(outgoingFormalities[0] && outgoingFormalities[1]){
+                    cout<<"Formalities ok"<<endl;
             //Sending was succesfull
             outgoingFormalities[0] = false;
             outgoingFormalities[1] = false;
-            sendingMessage = false;
-            serial.writeByte(EOT);
+            if(!sendingMultimessage){
+                sendingMessage = false;
+                cout<<" Send EOT "<<endl;
+                serial.writeByte(EOT);
+            } else {
+                outgoingFormalities[0] = true;
+                outgoingFormalities[1] = true;
+                readyToSendNextMultiMessage = true;
+            }
         } else if(outgoingFormalities[0] && !outgoingFormalities[1])  {
             //Start sending message
             outgoingFormalities[1] = true;
@@ -182,7 +201,7 @@ void ADLPCom::parseIncommingByte(unsigned char bytesReturned){
                     for(int i=0;i<oldSize;i++){
                         temp[i] = incommingMessageTemp.data[i];
                     }
-//                    memcpy(temp , incommingMessageTemp.data, oldSize*sizeof(unsigned char));                    
+                    //                    memcpy(temp , incommingMessageTemp.data, oldSize*sizeof(unsigned char));                    
                     //Now we got a copy of the old data, so we can allocate a bigger one
                     free(incommingMessageTemp.data);
                 }
@@ -194,9 +213,9 @@ void ADLPCom::parseIncommingByte(unsigned char bytesReturned){
                     for(int i=0;i<oldSize;i++){
                         incommingMessageTemp.data[i] = temp[i];
                     }
-//                    memcpy(incommingMessageTemp.data, temp, oldSize*sizeof(unsigned char));
+                    //                    memcpy(incommingMessageTemp.data, temp, oldSize*sizeof(unsigned char));
                     multimessageDataIndex = oldSize;
-                  //  free(temp);
+                    //  free(temp);
                 }
             }
                 break;
