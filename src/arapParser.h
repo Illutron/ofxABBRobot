@@ -1,5 +1,6 @@
 #pragma once
 //#include "adlpCom.h"
+#include "arapInstructions.h"
 
 enum ARAPInstruction {
     SENDPROGRAM = 1,
@@ -52,4 +53,8 @@ struct ARAPMessage {
 class ARAPParser {
 public:
     ARAPMessage constructMessage(ARAPInstruction instruction, int functionSuffix = 0, unsigned char * data = nil, int datasize = 0);
+    
+    ARAPMessage constructMoveMessage(ARAP_COORDINATE coord, int velocity, int runSpeed, int functionSuffix, unsigned char moveData);
+    
+    ARAP_STATUS parseStatusMessage(ARAPMessage msg);
 };

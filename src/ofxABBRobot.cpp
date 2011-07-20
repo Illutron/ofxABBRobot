@@ -95,16 +95,24 @@ string errorString(int errorNum){
     }
 }
 
+//----------------------
+
+
+
+
+
+
+
+//----------------------
 
 
 ofxABBRobot::ofxABBRobot(){
+    //Construct the sub objects
     parser = new ARAPParser();
     com = new ADLPCom();
 }
 
-void ofxABBRobot::update(){
-    com->update();
-}
+//----------------------
 
 bool ofxABBRobot::isErrorMessage(ARAPMessage msg){
     if(msg.instruction == 127 && (msg.functionSuffix == 7 || msg.functionSuffix == 9 || msg.functionSuffix == 10 || msg.functionSuffix == 17)){
@@ -113,12 +121,17 @@ bool ofxABBRobot::isErrorMessage(ARAPMessage msg){
     return false;
 }
 
+//----------------------
+
+
 bool ofxABBRobot::isWarningMessage(ARAPMessage msg){
     if(msg.messageType == warning){
         return true;
     }
     return false;
 }
+
+//----------------------
 
 string ofxABBRobot::errorMessageToString(ARAPMessage msg){
     string ret;
@@ -144,6 +157,8 @@ string ofxABBRobot::errorMessageToString(ARAPMessage msg){
     return ret;
 }
 
+//----------------------
+
 string ofxABBRobot::warningMessageToString(ARAPMessage msg){
     string ret;
     if(isWarningMessage(msg)){
@@ -152,32 +167,9 @@ string ofxABBRobot::warningMessageToString(ARAPMessage msg){
     return ret;
 }
 
-ARAPMessage ofxABBRobot::responseSyncQuery(ARAPMessage msg){
-    responseCounter = com->readMessageCounter;
-    com->queueMessage(msg);
-    bool gotResponse = false;
-    ARAPMessage response;
-    while (!gotResponse) {
-        vector<ARAPMessage> messages = com->readMessagesAfterCount(responseCounter);
-        responseCounter = com->readMessageCounter;
-        for(int i=0;i<messages.size();i++){
-            if(messages[i].instruction == msg.instruction){
-                response = messages[i];
-                cout<<"Got message ################"<<endl;
-                gotResponse = true;
-                break;
-            }
-        }
-        if(!gotResponse)
-            usleep(1000*100);
-    }
-    return response;
-}
 
-void ofxABBRobot::commandQuery(ARAPMessage msg){
-    com->queueMessage(msg);
-}
-
+//----------------------
+//----------------------
 
 #pragma mark ARAP api
 
@@ -189,9 +181,13 @@ void ofxABBRobot::startProgram(bool fromStart, int program){
     commandQuery(msg);
 } 
 
+//----------------------
+
 void ofxABBRobot::stopProgram(){
     commandQuery(parser->constructMessage(STOPPROGRAM));
 }
+
+//----------------------
 
 void ofxABBRobot::writeMode(ARAP_MODE mode){
     if(mode > 3){
@@ -202,6 +198,8 @@ void ofxABBRobot::writeMode(ARAP_MODE mode){
     commandQuery(msg);
 }
 
+//----------------------
+
 ARAP_STATUS ofxABBRobot::readStatus(bool async){
     ARAPMessage msg = parser->constructMessage(READSTATUS);
     
@@ -210,34 +208,19 @@ ARAP_STATUS ofxABBRobot::readStatus(bool async){
     if(!async){
         response = responseSyncQuery(msg);
         gotResponse = true;
+    } else {
+        cout<<"Error: Async not implemented yet"<<endl;
     }
     
     ARAP_STATUS ret;
     if(gotResponse){
         //Parse the response
-        unsigned char mode = response.data[17-8];
-        if(mode & 1) {
-            ret.mode = STANDBY;
-        } else if(mode & 2){
-            ret.mode = OPERATION;
-        }
-        else if(mode & 4){
-            ret.mode = EXECUTION;
-        }
-        else if(mode & 8){
-            ret.mode = EMERGENCYSTOP;
-        }
-        
-        ret.location.x = (response.data[18-8]<<8)+response.data[19-8];
-        ret.location.y = (response.data[20-8]<<8)+response.data[21-8];
-        ret.location.z = (response.data[22-8]<<8)+response.data[23-8];
-        ret.location.q1 = (response.data[24-8]<<8)+response.data[25-8];
-        ret.location.q2 = (response.data[26-8]<<8)+response.data[27-8];
-        ret.location.q3 = (response.data[28-8]<<8)+response.data[29-8];
-        ret.location.q4 = (response.data[30-8]<<8)+response.data[31-8];        
+        ret = parser->parseStatusMessage(response);
     }
     return ret;
 }
+
+//----------------------
 
 ARAP_PROGRAM ofxABBRobot::receiveProgram(int program){
     unsigned char data[4];
@@ -254,96 +237,88 @@ ARAP_PROGRAM ofxABBRobot::receiveProgram(int program){
         ret.data[i] = response.data[4+i];
     }
     printf("Error / program number: %i %i",response.data[0], response.data[1]);
-    //memcpy((void*)ret.data, response.data+4, (response.size - 4) * sizeof(unsigned char));
     cout<<"--------"<<endl<<endl;
     for(int i=0;i<(response.size - 4);i++){
-        //        if(ret.data[i] == 0){
-        //            ret.data[i] = ' ';
-        //        }
         printf("%i\n",ret.data[i]);
     }
-    //    cout<<ret.data<<endl;
     return ret;
 }
 
-void ofxABBRobot::sendMoveMessage(ARAP_COORDINATE coord, int velocity, int runSpeed, int functionSuffix, unsigned moveData, bool last){
-    unsigned char data[52];
-    memset(data, 0, 52);
-    
-    data[11] = 0;
+//----------------------
 
-    data[12-8] = 0; //Handpos?
-    data[13-8] = moveData;
+void ofxABBRobot::sendMoveMessage(ARAP_COORDINATE coord, int velocity, int runSpeed, int functionSuffix, unsigned char moveData, bool last){
+    ARAPMessage msg = parser->constructMoveMessage(coord, velocity, runSpeed, functionSuffix, moveData);
     
-    data[14-8] = velocity >> 8;
-    data[15-8] = velocity & 255;
-    
-    data[16-8] = runSpeed >> 8;
-    data[17-8] = runSpeed & 255;
-    
-    data[18-8] = coord.x >> 8;
-    data[19-8] = coord.x & 255;
-    
-    data[20-8] = coord.y >> 8;
-    data[21-8] = coord.y & 255;
-    
-    data[22-8] = coord.z >> 8;
-    data[23-8] = coord.z & 255;
-    
-    data[24-8] = coord.q1 >> 8;
-    data[25-8] = coord.q1 & 255;
-    
-    data[26-8] = coord.q2 >> 8;
-    data[27-8] = coord.q2 & 255;
-    
-    data[28-8] = coord.q3 >> 8;
-    data[29-8] = coord.q3 & 255;
-    
-    data[30-8] = coord.q4 >> 8;
-    data[31-8] = coord.q4 & 255;
-    
-    data[32-8] = 255;
-    data[33-8] = 255;
-    data[34-8] = 250;
-    data[35-8] = 220;
-    
-    ARAPMessage msg = parser->constructMessage(MOVE, functionSuffix, data, 52);
     if(!last){
+        //Create it as multimessage
         msg.messageType = multifrompc;
     }
     commandQuery(msg);
 }
 
+//----------------------
+
 void ofxABBRobot::move(ARAP_COORDINATE coord, int velocity, int runSpeed, bool absolute, bool robotCoordinates){
-    
+    vector<ARAP_COORDINATE> v;
+    v.push_back(coord);
+    move(v, velocity, runSpeed, absolute, robotCoordinates);
+}
+
+//----------------------
+
+void ofxABBRobot::move(vector<ARAP_COORDINATE> coords, int velocity, int runSpeed, bool absolute,  bool robotCoordinates){
     unsigned char robotBit = 0;
     if(robotCoordinates){
         robotBit = 4;
     }
     
-    //Set startpunkt
-    sendMoveMessage(coord, velocity, runSpeed, 2,2+robotBit, true); //Startpunkt, Rechtwinkelige Koordinaten
+    //Send start point (required by protocol)
+    sendMoveMessage(coords[0], velocity, runSpeed, 2,2+robotBit, true);
     
-    //Set motion 1
-    ARAP_COORDINATE motion1 = coord;
-    //    memset(&motion1,0,sizeof(ARAP_COORDINATE));
-    //motion1.y -= 1000;
-    sendMoveMessage(motion1, velocity, runSpeed, 0, 0+robotBit, true); //Relative Bewegung, Startpunkt
+    for(int i=0;i<coords.size();i++){
+        sendMoveMessage(coords[i], velocity, runSpeed, 0, 0+robotBit, true); 
+    }
+    
+    //Send stop (required by protocol)
+    ARAP_COORDINATE endpoint = coords[coords.size()-1];
+    sendMoveMessage(endpoint, velocity, runSpeed, 3, 2+robotBit, true);
+}
 
-    
-    //Set motion 2U
- /*  ARAP_COORDINATE motion2 = coord;
-    //    memset(&motion2,0,sizeof(ARAP_COORDINATE));
-    motion2.y += 1000;
-    sendMoveMessage(motion2, velocity, runSpeed, 0, 0, false); //Relative Bewegung, Startpunkt
-    */
-    //Set stop
-    ARAP_COORDINATE endpoint = coord;
-    //endpoint.x -= 500;
+#pragma mark private calls
 
-   sendMoveMessage(endpoint, velocity, runSpeed, 3, 2+robotBit/*+4*/, true); //Endpunkt, Startpunkt
+//----------------------
+
+ARAPMessage ofxABBRobot::responseSyncQuery(ARAPMessage msg){
+    //Store the current message counter before we send the request
+    responseCounter = com->readMessageCounter;
+    com->queueMessage(msg); //Sends the command
     
-    
+    bool gotResponse = false;
+    ARAPMessage response;
+    while (!gotResponse) {
+        //Check whats new in the inbox 
+        vector<ARAPMessage> messages = com->readMessagesAfterCount(responseCounter);
+        //Update the message counter so we don't see the same messages next time
+        responseCounter = com->readMessageCounter;
+        //Loop through the messages to see if any match our instruction
+        for(int i=0;i<messages.size();i++){
+            if(messages[i].instruction == msg.instruction){
+                response = messages[i];
+                gotResponse = true;
+                break;
+            }
+        }
+        //Lets sleep a bit before checking again (to not hang on the lock)
+        if(!gotResponse)
+            usleep(1000*100);
+    }
+    return response;
+}
+
+//----------------------
+
+void ofxABBRobot::commandQuery(ARAPMessage msg){
+    com->queueMessage(msg);
 }
 
 
