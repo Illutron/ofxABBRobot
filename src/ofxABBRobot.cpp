@@ -246,11 +246,13 @@ ARAP_PROGRAM ofxABBRobot::receiveProgram(int program){
 
 //----------------------
 
-void ofxABBRobot::sendMoveMessage(ARAP_COORDINATE coord, int velocity, int runSpeed, int functionSuffix, unsigned char moveData, bool last){
-    ARAPMessage msg = parser->constructMoveMessage(coord, velocity, runSpeed, functionSuffix, moveData);
+void ofxABBRobot::sendMoveMessage(ARAP_COORDINATE coord, float velocity, float runSpeed, int functionSuffix, unsigned char moveData, bool last){
+    int velocityRaw = velocity * 1.0/0.125;
+    int runSpeedRaw = runSpeed * 8192;
+    ARAPMessage msg = parser->constructMoveMessage(coord, velocityRaw, runSpeedRaw, functionSuffix, moveData);
     
     if(!last){
-        //Create it as multimessage
+        //Create it as multimessage. Not sure if it helps anything.
         msg.messageType = multifrompc;
     }
     commandQuery(msg);
@@ -258,7 +260,7 @@ void ofxABBRobot::sendMoveMessage(ARAP_COORDINATE coord, int velocity, int runSp
 
 //----------------------
 
-void ofxABBRobot::move(ARAP_COORDINATE coord, int velocity, int runSpeed, bool absolute, bool robotCoordinates){
+void ofxABBRobot::move(ARAP_COORDINATE coord, float velocity, float runSpeed, bool absolute, bool robotCoordinates){
     vector<ARAP_COORDINATE> v;
     v.push_back(coord);
     move(v, velocity, runSpeed, absolute, robotCoordinates);
@@ -266,11 +268,12 @@ void ofxABBRobot::move(ARAP_COORDINATE coord, int velocity, int runSpeed, bool a
 
 //----------------------
 
-void ofxABBRobot::move(vector<ARAP_COORDINATE> coords, int velocity, int runSpeed, bool absolute,  bool robotCoordinates){
+void ofxABBRobot::move(vector<ARAP_COORDINATE> coords, float velocity, float runSpeed, bool absolute,  bool robotCoordinates){
     unsigned char robotBit = 0;
     if(robotCoordinates){
         robotBit = 4;
     }
+    
     
     //Send start point (required by protocol)
     sendMoveMessage(coords[0], velocity, runSpeed, 2,2+robotBit, true);

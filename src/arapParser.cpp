@@ -19,6 +19,8 @@ ARAPMessage ARAPParser::constructMessage(ARAPInstruction instruction, int functi
 //----------------------
 
 ARAPMessage ARAPParser::constructMoveMessage(ARAP_COORDINATE coord, int velocity, int runSpeed, int functionSuffix, unsigned char moveData){
+    ARAP_COORDINATE_RAW raw = coordinateToRaw(coord);
+    
     unsigned char data[52];
     memset(data, 0, 52);
     
@@ -31,26 +33,27 @@ ARAPMessage ARAPParser::constructMoveMessage(ARAP_COORDINATE coord, int velocity
     data[16-8] = runSpeed >> 8;
     data[17-8] = runSpeed & 255;
     
-    data[18-8] = coord.x >> 8;
-    data[19-8] = coord.x & 255;
+    data[18-8] = raw.x >> 8;
+    data[19-8] = raw.x & 255;
     
-    data[20-8] = coord.y >> 8;
-    data[21-8] = coord.y & 255;
+    data[20-8] = raw.y >> 8;
+    data[21-8] = raw.y & 255;
     
-    data[22-8] = coord.z >> 8;
-    data[23-8] = coord.z & 255;
+    data[22-8] = raw.z >> 8;
+    data[23-8] = raw.z & 255;
     
-    data[24-8] = coord.q1 >> 8;
-    data[25-8] = coord.q1 & 255;
     
-    data[26-8] = coord.q2 >> 8;
-    data[27-8] = coord.q2 & 255;
+    data[24-8] = raw.q1 >> 8;
+    data[25-8] = raw.q1 & 255;
     
-    data[28-8] = coord.q3 >> 8;
-    data[29-8] = coord.q3 & 255;
+    data[26-8] = raw.q2 >> 8;
+    data[27-8] = raw.q2 & 255;
     
-    data[30-8] = coord.q4 >> 8;
-    data[31-8] = coord.q4 & 255;
+    data[28-8] = raw.q3 >> 8;
+    data[29-8] = raw.q3 & 255;
+    
+    data[30-8] = raw.q4 >> 8;
+    data[31-8] = raw.q4 & 255;
     
     data[32-8] = 255;
     data[33-8] = 255;
@@ -84,13 +87,69 @@ ARAP_STATUS ARAPParser::parseStatusMessage(ARAPMessage msg){
         ret.mode = EMERGENCYSTOP;
     }
     
-    ret.location.x = (msg.data[18-8]<<8)+msg.data[19-8];
-    ret.location.y = (msg.data[20-8]<<8)+msg.data[21-8];
-    ret.location.z = (msg.data[22-8]<<8)+msg.data[23-8];
-    ret.location.q1 = (msg.data[24-8]<<8)+msg.data[25-8];
-    ret.location.q2 = (msg.data[26-8]<<8)+msg.data[27-8];
-    ret.location.q3 = (msg.data[28-8]<<8)+msg.data[29-8];
-    ret.location.q4 = (msg.data[30-8]<<8)+msg.data[31-8]; 
+    ARAP_COORDINATE_RAW raw;
+    
+    raw.x = (msg.data[18-8]<<8)+msg.data[19-8];
+    raw.y = (msg.data[20-8]<<8)+msg.data[21-8];
+    raw.z = (msg.data[22-8]<<8)+msg.data[23-8];
+    raw.q1 = (msg.data[24-8]<<8)+msg.data[25-8];
+    raw.q2 = (msg.data[26-8]<<8)+msg.data[27-8];
+    raw.q3 = (msg.data[28-8]<<8)+msg.data[29-8];
+    raw.q4 = (msg.data[30-8]<<8)+msg.data[31-8]; 
+    
+    ret.location = coordinateFromRaw(raw);
     
     return ret;
 }
+
+//----------------------
+
+
+
+
+//----------------------
+
+ARAP_COORDINATE coordinateFromRaw(ARAP_COORDINATE_RAW raw){
+    ARAP_COORDINATE ret;
+    ret.x = raw.x * 0.125;
+    ret.y = raw.y * 0.125;
+    ret.z = raw.z * 0.125;
+    
+    ret.q1 = raw.q1 * 1.0/16384.0;
+    ret.q2 = raw.q2 * 1.0/16384.0;
+    ret.q3 = raw.q3 * 1.0/16384.0;
+    ret.q4 = raw.q4 * 1.0/16384.0;
+    
+    return ret;
+}
+
+//----------------------
+
+
+ARAP_COORDINATE_RAW coordinateToRaw(ARAP_COORDINATE coord){
+    ARAP_COORDINATE_RAW ret;
+    ret.x = coord.x * 1.0/0.125;
+    ret.y = coord.y * 1.0/0.125;
+    ret.z = coord.z * 1.0/0.125;
+    
+    ret.q1 = coord.q1 * 16384.0;
+    ret.q2 = coord.q2 * 16384.0;
+    ret.q3 = coord.q3 * 16384.0;
+    ret.q4 = coord.q4 * 16384.0;
+    
+    return ret;
+}
+
+/*
+ Q1 = cos i/2 
+ Q2 = nx sin i/2 
+ Q3 = ny sin i/2 
+ Q4 = nz sin i/2
+ 
+ where n = nx, ny, nz is the orientation of the rotation axis of the wrist coordinate system relative 
+ the base coordinate system and i is the rotation angle around n. 
+ Before calculating i, the Q1 - 04 should always be multiplied by the scale factor 1/16384 (0,000061).
+ 
+ Help!
+*/
+

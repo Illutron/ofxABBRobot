@@ -37,8 +37,8 @@ public:
     ARAP_PROGRAM receiveProgram(int program);
 
     //Ask the robot to move to a specific coordinate. (or vector of coordinates)
-    void move(ARAP_COORDINATE coord, int velocity, int runSpeed, bool absolute=true,  bool robotCoordinates=false);
-    void move(vector<ARAP_COORDINATE> coords, int velocity, int runSpeed, bool absolute=true,  bool robotCoordinates=false);
+    void move(ARAP_COORDINATE coord, float velocity, float runSpeed, bool absolute=true,  bool robotCoordinates=false);
+    void move(vector<ARAP_COORDINATE> coords, float velocity, float runSpeed, bool absolute=true,  bool robotCoordinates=false);
 
     //Returns if the supplied message is a warning or error
     bool isErrorMessage(ARAPMessage msg);
@@ -56,6 +56,6 @@ private:
     //Add message to queue and don't wait for any response
     void commandQuery(ARAPMessage msg);
 
-    void sendMoveMessage(ARAP_COORDINATE coord, int velocity, int runSpeed, int functionSuffix, unsigned char moveData, bool last);
+    void sendMoveMessage(ARAP_COORDINATE coord, float velocity, float runSpeed, int functionSuffix, unsigned char moveData, bool last);
     long responseCounter;
 };

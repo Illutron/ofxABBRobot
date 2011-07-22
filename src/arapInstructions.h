@@ -12,6 +12,16 @@ enum ARAP_MODE {
 };
 
 struct ARAP_COORDINATE {
+    float x;
+    float y;
+    float z;
+    float q1;
+    float q2;
+    float q3;
+    float q4;
+};
+
+struct ARAP_COORDINATE_RAW {
     int x;
     int y;
     int z;

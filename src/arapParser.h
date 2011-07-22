@@ -57,4 +57,7 @@ public:
     ARAPMessage constructMoveMessage(ARAP_COORDINATE coord, int velocity, int runSpeed, int functionSuffix, unsigned char moveData);
     
     ARAP_STATUS parseStatusMessage(ARAPMessage msg);
+    
+    ARAP_COORDINATE coordinateFromRaw(ARAP_COORDINATE_RAW raw);
+    ARAP_COORDINATE_RAW coordinateToRaw(ARAP_COORDINATE coord);    
 };
