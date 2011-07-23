@@ -62,6 +62,7 @@ private:
     int multimessageDataIndex;
     bool sendingMultimessage;
     bool readyToSendNextMultiMessage;
+    vector<unsigned char> lastSending;
     
     //The loop for the serial stuff
     void threadedFunction();

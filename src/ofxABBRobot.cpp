@@ -110,6 +110,39 @@ ofxABBRobot::ofxABBRobot(){
     //Construct the sub objects
     parser = new ARAPParser();
     com = new ADLPCom();
+    coordHandler = new CoordinateHandler();
+    
+    xml = new ofxXmlSettings();
+    
+    //Settings loading
+    bool xmlLoaded = xml->loadFile("settings.xml");
+    if(xmlLoaded){
+        cout<<"Settings loaded"<<endl;
+    } else {
+        cout<<"Settings XML NOT loaded! "<<ofToDataPath("settings.xml")<<endl;
+    }
+    
+    if(xmlLoaded){
+        for(int i=0;i<3;i++){
+            xml->pushTag("CALIBRATION",0);
+            xml->pushTag("CORNER",i);
+            ARAP_COORDINATE coord;
+            coord.x = xml->getValue("X", 0.0);
+            coord.y = xml->getValue("Y", 0.0);
+            coord.z = xml->getValue("Z", 0.0);
+            coord.q1 = xml->getValue("Q1", 0.0);
+            coord.q2 = xml->getValue("Q2", 0.0);
+            coord.q3 = xml->getValue("Q3", 0.0);
+            coord.q4 = xml->getValue("Q4", 0.0);
+
+            coordHandler->setCalibrationCorner(i, coord);
+            
+            xml->popTag();
+            xml->popTag();
+        }
+    }
+    
+    
 }
 
 //----------------------
@@ -202,7 +235,8 @@ void ofxABBRobot::writeMode(ARAP_MODE mode){
 
 ARAP_STATUS ofxABBRobot::readStatus(bool async){
     ARAPMessage msg = parser->constructMessage(READSTATUS);
-    
+    //msg.ort = 1;
+
     ARAPMessage response;
     bool gotResponse = false;
     if(!async){
@@ -275,8 +309,17 @@ void ofxABBRobot::move(vector<ARAP_COORDINATE> coords, float velocity, float run
     }
     
     
+    ARAP_COORDINATE nulCord;
+    nulCord.x = 0;
+    nulCord.y = 0;
+    nulCord.z = 0;
+    nulCord.q1 = 0;
+    nulCord.q2 = 0;
+    nulCord.q3 = 0;
+    nulCord.q4 = 0;
+    
     //Send start point (required by protocol)
-    sendMoveMessage(coords[0], velocity, runSpeed, 2,2+robotBit, true);
+    sendMoveMessage(nulCord, velocity, runSpeed, 2,2+robotBit, true);
     
     for(int i=0;i<coords.size();i++){
         sendMoveMessage(coords[i], velocity, runSpeed, 0, 0+robotBit, true); 
@@ -285,6 +328,20 @@ void ofxABBRobot::move(vector<ARAP_COORDINATE> coords, float velocity, float run
     //Send stop (required by protocol)
     ARAP_COORDINATE endpoint = coords[coords.size()-1];
     sendMoveMessage(endpoint, velocity, runSpeed, 3, 2+robotBit, true);
+}
+
+//----------------------
+
+void ofxABBRobot::movePlane(vector<ofxVec3f> coords, float velocity, bool robotCord, float runSpeed){
+    vector<ARAP_COORDINATE> worldCoords;
+
+    for(int i=0;i<coords.size();i++){
+        worldCoords.push_back(coordHandler->convertToWorld(coords[i][0],coords[i][1],coords[i][2]));
+//        
+//        cout<<"worldcoord: "<<worldCoords[i].x<<"  "<<worldCoords[i].y<<"  "<<worldCoords[i].z<<"  "<<worldCoords[i].q1<<"  "<<worldCoords[i].q2<<"  "<<worldCoords[i].q3<<"  "<<worldCoords[i].q4<<endl;
+    }
+    
+    move(worldCoords, velocity, runSpeed, true, robotCord);
 }
 
 #pragma mark private calls
@@ -313,7 +370,7 @@ ARAPMessage ofxABBRobot::responseSyncQuery(ARAPMessage msg){
         }
         //Lets sleep a bit before checking again (to not hang on the lock)
         if(!gotResponse)
-            usleep(1000*100);
+            usleep(1000*10);
     }
     return response;
 }
@@ -324,6 +381,52 @@ void ofxABBRobot::commandQuery(ARAPMessage msg){
     com->queueMessage(msg);
 }
 
+//----------------------
 
+void ofxABBRobot::storeCalibrationCorner(int corner){
+    ARAP_STATUS status = readStatus();
+    
+    xml->pushTag("CALIBRATION",0);
+    xml->pushTag("CORNER",corner);
+    xml->setValue("X", status.location.x,0);
+    xml->setValue("Y", status.location.y,0);
+    xml->setValue("Z", status.location.z,0);
+    
+    xml->setValue("Q1", status.location.q1,0);
+    xml->setValue("Q2", status.location.q2,0);
+    xml->setValue("Q3", status.location.q3,0);
+    xml->setValue("Q4", status.location.q4,0);
+    xml->popTag();
+    xml->popTag();
+    
+    xml->saveFile("settings.xml");
+    
+    coordHandler->setCalibrationCorner(corner, status.location);
+}
+
+
+//----------------------
+
+void ofxABBRobot::runDrawing(float speed){
+    drawing = new ofxXmlSettings();
+    drawing->loadFile("drawing.xml");
+
+    drawing->pushTag("XML",0);
+    int count = drawing->getNumTags("POINT");  
+    
+    vector<ofxVec3f> coords;
+
+    for(int i=0;i<count;i++){
+        drawing->pushTag("POINT",i);
+        float z = 20;
+        if(drawing->getValue("tool", 0.0)==1)
+            z = 0;
+        coords.push_back(ofxVec3f(drawing->getValue("x", 0.0), drawing->getValue("y", 0.0), z));
+        drawing->popTag();
+    }
+    drawing->popTag();
+    
+    movePlane(coords, 100);
+}
 
 

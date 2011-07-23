@@ -123,6 +123,11 @@ void ADLPCom::threadedFunction(){
                     message[3] = 0; //Mesesage from PC to controller
                     message[4] = msg.instruction; // Instruction
                     message[5] = msg.messageType; 
+                    
+                    if(msg.ort == 1){
+                        message[5] = msg.messageType + 0x10; 
+                    }
+                    
                     message[6] = 0; //function suffix << 8 TODO, but never used
                     message[7] = msg.functionSuffix; //function suffix
                     for(int i=0;i<msg.size;i++){
@@ -144,19 +149,30 @@ void ADLPCom::threadedFunction(){
                     }
                     
                     //Write the data
-                    serial.writeByte(DLE);
-                    serial.writeByte((msg.size % 2)? STXodd : STXeven);
-                    serial.writeBytes(message, msg.size+8);
-                    serial.writeByte(DLE);
-                    serial.writeByte(ETX);
-                    serial.writeByte(checksum ^ ETX);
+                    lastSending.clear();
+                    
+                    lastSending.push_back(DLE);
+                    lastSending.push_back((msg.size % 2)? STXodd : STXeven);
+                    for(int i=0;i<msg.size+8;i++){
+                        lastSending.push_back(message[i]);
+                    }
+                    lastSending.push_back(DLE);
+                    lastSending.push_back(ETX);
+                    lastSending.push_back(checksum ^ ETX);
+                    
+                    for(int i=0;i<lastSending.size();i++){
+                    //    printf("%x - ",lastSending[i]);
+                        serial.writeByte(lastSending[i]);   
+                    }
                     if(msg.messageType == query){
                         waitingForResponse = true;
                     }
+                    
+                    
                 }
             }
             unlock();
-            usleep(1000*100);
+            usleep(1000*1);
         }
     }
 }
@@ -164,7 +180,14 @@ void ADLPCom::threadedFunction(){
 //----------------------
 
 void ADLPCom::parseIncommingByte(unsigned char bytesReturned){
-    if(bytesReturned == ACK && sendingMessage){
+   if(bytesReturned == NAK && sendingMessage){
+       cout<<"Resending packet"<<endl;
+       for(int i=0;i<lastSending.size();i++){
+         //  printf("%x - ",lastSending[i]);
+           serial.writeByte(lastSending[i]);   
+       }
+    }
+    else if(bytesReturned == ACK && sendingMessage){
         if(outgoingFormalities[0] && outgoingFormalities[1]){
             //Sending was succesfull
             if(!sendingMultimessage){
@@ -189,7 +212,7 @@ void ADLPCom::parseIncommingByte(unsigned char bytesReturned){
         //We are processing a message content that is incomming
         switch (incommingMessageIndex) {
             case 0:  //Not used
-               
+                
                 break;
             case 1:  //Size of telegram
             {               
@@ -309,7 +332,7 @@ void ADLPCom::parseIncommingByte(unsigned char bytesReturned){
     
     else if(incommingMessageIndex >= 0 && incommingFormalities[0] && incommingFormalities[1] && incommingFormalities[2] && incommingFormalities[3] && incommingFormalities[4]){
         if(ADLP_DEBUG) printf("Recevied checksum %x\n",bytesReturned);
-
+        
         //All formalities met, check cheksum (TODO)
         serial.writeByte(ACK); 
         receivingMessage = false;

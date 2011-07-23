@@ -9,6 +9,9 @@
 #include "adlpCom.h"
 #include "arapParser.h"
 #include "arapInstructions.h"
+#include "ofxXmlSettings.h"
+#include "ofxVectorMath.h"
+#include "coordinateHandler.h"
 
 class ofxABBRobot {
 public:
@@ -18,7 +21,8 @@ public:
     ADLPCom * com;
     //This is for creating ARAP messages correctly
     ARAPParser * parser;
-    
+    //This is coordinating the 3d space
+    CoordinateHandler * coordHandler;
     
     
     //Tell the robot to start a program
@@ -36,9 +40,11 @@ public:
     //Download a program (binary)
     ARAP_PROGRAM receiveProgram(int program);
 
-    //Ask the robot to move to a specific coordinate. (or vector of coordinates)
-    void move(ARAP_COORDINATE coord, float velocity, float runSpeed, bool absolute=true,  bool robotCoordinates=false);
-    void move(vector<ARAP_COORDINATE> coords, float velocity, float runSpeed, bool absolute=true,  bool robotCoordinates=false);
+    //Ask the robot to move to a specific coordinate. (or vector of coordinates) unit is mm 
+    void move(ARAP_COORDINATE coord, float velocity, float runSpeed=1, bool absolute=true,  bool robotCoordinates=false);
+    void move(vector<ARAP_COORDINATE> coords, float velocity, float runSpeed=1, bool absolute=true,  bool robotCoordinates=false);
+    //Move in the calibrated plane
+    void movePlane(vector<ofxVec3f> coords, float velocity, bool robotCord = false, float runSpeed=1);
 
     //Returns if the supplied message is a warning or error
     bool isErrorMessage(ARAPMessage msg);
@@ -47,7 +53,15 @@ public:
     //Creates a human readable string from an error or warning message
     string errorMessageToString(ARAPMessage msg);
     string warningMessageToString(ARAPMessage msg);
-
+    
+    //Move the arm to one of the corners, and call thsi function to calibrate and save the data
+    //Corner 0 is the reference point (top left)
+    //Corner 1 is the x axis (top right)
+    //Corner 2 is the y axis (bottom left) 
+    void storeCalibrationCorner(int corner);
+    
+    //Run the drawing code from drawing.xml (in the data dir) 
+    void runDrawing(float speed);
     
 private:
     //Add a message to the queue, and wait for response message
@@ -58,4 +72,7 @@ private:
 
     void sendMoveMessage(ARAP_COORDINATE coord, float velocity, float runSpeed, int functionSuffix, unsigned char moveData, bool last);
     long responseCounter;
+    
+    ofxXmlSettings * xml;
+    ofxXmlSettings * drawing;
 };

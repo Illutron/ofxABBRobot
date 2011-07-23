@@ -55,10 +55,10 @@ ARAPMessage ARAPParser::constructMoveMessage(ARAP_COORDINATE coord, int velocity
     data[30-8] = raw.q4 >> 8;
     data[31-8] = raw.q4 & 255;
     
-    data[32-8] = 255;
+/*    data[32-8] = 255;
     data[33-8] = 255;
     data[34-8] = 250;
-    data[35-8] = 220;
+    data[35-8] = 220;*/
     
     ARAPMessage msg = constructMessage(MOVE, functionSuffix, data, 52);
     return msg;
@@ -109,11 +109,20 @@ ARAP_STATUS ARAPParser::parseStatusMessage(ARAPMessage msg){
 
 //----------------------
 
-ARAP_COORDINATE coordinateFromRaw(ARAP_COORDINATE_RAW raw){
+ARAP_COORDINATE ARAPParser::coordinateFromRaw(ARAP_COORDINATE_RAW raw){
     ARAP_COORDINATE ret;
+    if(raw.x > 32767)
+        raw.x -= 2*32767;
+    if(raw.y > 32767)
+        raw.y -= 2*32767;
+    if(raw.z > 32767)
+        raw.z -= 2*32767;
+    
     ret.x = raw.x * 0.125;
     ret.y = raw.y * 0.125;
     ret.z = raw.z * 0.125;
+    
+
     
     ret.q1 = raw.q1 * 1.0/16384.0;
     ret.q2 = raw.q2 * 1.0/16384.0;
@@ -126,7 +135,7 @@ ARAP_COORDINATE coordinateFromRaw(ARAP_COORDINATE_RAW raw){
 //----------------------
 
 
-ARAP_COORDINATE_RAW coordinateToRaw(ARAP_COORDINATE coord){
+ARAP_COORDINATE_RAW ARAPParser::coordinateToRaw(ARAP_COORDINATE coord){
     ARAP_COORDINATE_RAW ret;
     ret.x = coord.x * 1.0/0.125;
     ret.y = coord.y * 1.0/0.125;

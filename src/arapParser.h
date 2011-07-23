@@ -47,6 +47,7 @@ struct ARAPMessage {
 	ARAPMessageType messageType;
     int functionSuffix;
 	unsigned char * data;	
+    int ort;
 };
 
 
